@@ -1,0 +1,17 @@
+# LangGraph Agent 与模型接入
+langchain-core>=1.6,<2
+langchain-openai>=1.6,<2
+langgraph>=1.2,<2
+python-dotenv>=1.2
+pydantic>=2.13
+
+# 检索：本地 FAISS 向量库 + 本地嵌入模型
+faiss-cpu>=1.15
+numpy>=2.5
+sentence-transformers>=6.0
+
+# MCP 协议（服务端 + 客户端）
+mcp>=2.2
+
+# 文档解析（pdf / docx / pptx / md / txt）
+pypdf>=6.18

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Enterprise · 本地控制台</title>
+<link rel="stylesheet" href="/dist/main.css">
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar" class="sidebar"></aside>
+
+  <main class="main">
+    <header class="topbar">
+      <strong>Agent Enterprise</strong>
+      <span id="ws-tag">工作区：—</span>
+      <span class="spacer"></span>
+      <span id="kb-tag">知识库：未导入</span>
+      <span id="model-tag">—</span>
+    </header>
+
+    <div id="transcript" class="transcript"></div>
+
+    <div class="composer">
+      <textarea id="input" placeholder="输入问题，Ctrl+Enter 发送"></textarea>
+      <button id="send" type="button">发送</button>
+    </div>
+  </main>
+</div>
+<script src="/dist/main.js"></script>
+</body>
+</html>

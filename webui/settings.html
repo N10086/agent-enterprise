@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>设置 · Agent Enterprise</title>
+<link rel="stylesheet" href="/dist/settings.css">
+</head>
+<body class="settings-page">
+<div class="settings-window">
+  <aside class="settings-nav">
+    <div class="nav-brand">设置</div>
+    <nav class="nav-list">
+      <button class="nav-item" data-tab="api" type="button">
+        <span class="nav-icon">⚙</span><span>API 配置</span>
+      </button>
+      <button class="nav-item" data-tab="kb" type="button">
+        <span class="nav-icon">▤</span><span>知识库</span>
+      </button>
+    </nav>
+  </aside>
+
+  <main class="settings-content">
+    <header class="content-head">
+      <strong id="pane-title">API 配置</strong>
+      <button id="close-btn" class="close-btn" type="button" title="关闭设置窗口">✕</button>
+    </header>
+
+    <div class="content-body">
+      <section class="pane" data-pane="api">
+        <p class="pane-hint">
+          选择厂商与模型。API Key 只保存在浏览器本地，随请求发给本机服务，不写入任何文件；
+          留空则使用服务端环境变量里的 Key。
+        </p>
+
+        <div class="field">
+          <label class="field-label" for="provider">厂商</label>
+          <select id="provider"></select>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="model">模型</label>
+          <input id="model" list="model-options" placeholder="模型名">
+          <datalist id="model-options"></datalist>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="api-key">API Key</label>
+          <input id="api-key" type="password" placeholder="留空则用服务端环境变量">
+          <div id="api-hint" class="field-hint muted"></div>
+        </div>
+
+        <div class="field">
+          <label class="field-label" for="base-url">Base URL（可选）</label>
+          <input id="base-url" placeholder="https://.../v1">
+        </div>
+
+        <footer class="pane-actions">
+          <button id="save-api" class="primary-btn" type="button">保存</button>
+          <span id="api-status" class="muted small"></span>
+        </footer>
+      </section>
+
+      <section class="pane" data-pane="kb" hidden>
+        <p class="pane-hint">
+          知识库来自工作区文件夹里的文档：可以拖入文件（会写入该文件夹），
+          也可以直接指定本机任意文件夹。「移出知识库」只是让它不参与检索，不会删除原文件。
+        </p>
+
+        <div class="field">
+          <label class="field-label">工作区文件夹</label>
+          <div class="folder-row">
+            <input id="folder-path" placeholder="C:\path\to\folder">
+            <button id="use-folder" class="primary-btn" type="button">使用此文件夹</button>
+          </div>
+          <div id="kb-folder" class="field-hint muted mono"></div>
+        </div>
+
+        <div class="browser">
+          <div class="browser-title muted small">浏览子目录（点击进入）</div>
+          <ul id="dir-list" class="dir-list"></ul>
+        </div>
+
+        <div id="kb-drop" class="drop">
+          <strong>拖入文件</strong><br>
+          <span class="muted">或 <u>点击选择</u></span>
+          <div class="muted small">PDF / Word / PPT / Markdown / 文本</div>
+        </div>
+        <input id="kb-file" type="file" multiple hidden
+               accept=".pdf,.docx,.pptx,.md,.markdown,.txt,.rst,.csv,.json">
+
+        <ul id="kb-list" class="kb-list"></ul>
+        <div id="kb-status" class="kb-status muted small"></div>
+        <footer class="pane-actions">
+          <button id="kb-clear" class="ghost-btn" type="button" hidden>全部移出知识库</button>
+        </footer>
+      </section>
+    </div>
+  </main>
+</div>
+<script src="/dist/settings.js"></script>
+</body>
+</html>

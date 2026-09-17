@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# 运行时数据：对话、知识库索引、工作区默认目录都在这里
+public/appdata/
+public/faiss_kb_semantic/
+public/vector_store/
+
+# 密钥与本机配置
+.env
+.env.local
+
+# 前端
+webui/node_modules/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
