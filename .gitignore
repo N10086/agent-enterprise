@@ -5,10 +5,13 @@ __pycache__/
 venv/
 env/
 
-# 运行时数据：对话、知识库索引、工作区默认目录都在这里
+# 运行时数据
+# 数据默认放在系统数据目录（%APPDATA%/agent-enterprise 等），不在仓库里；
+# 下面这些是早期版本留在项目内的位置，忽略掉避免误提交。
 public/appdata/
 public/faiss_kb_semantic/
 public/vector_store/
+public/corpus/
 
 # 密钥与本机配置
 .env

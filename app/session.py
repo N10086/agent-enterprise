@@ -85,8 +85,13 @@ def _build_index(entries: list[tuple[str, str]]) -> tuple[Path, list[dict]]:
     if str(BASE_DIR) not in sys.path:
         sys.path.insert(0, str(BASE_DIR))
 
-    from rag_faiss import Embedder, FaissStore
-    from semantic_chunking import pack_chunks, split_semantic
+    try:
+        from rag_faiss import Embedder, FaissStore
+        from semantic_chunking import pack_chunks, split_semantic
+    except ImportError as exc:
+        raise DocumentError(
+            f"缺少向量检索依赖（{exc.name}）。请先安装：pip install -r requirements.txt"
+        ) from exc
 
     embedder = Embedder(get_settings().kb_embedding_model)
     chunks: list[dict] = []
@@ -104,7 +109,7 @@ def _build_index(entries: list[tuple[str, str]]) -> tuple[Path, list[dict]]:
     if not chunks:
         raise DocumentError("切分后没有得到任何内容")
 
-    index_path = store.INDEX_DIR
+    index_path = store.index_dir()
     FaissStore.build(chunks, embedder).save(index_path)
     return index_path, stats
 
@@ -136,7 +141,7 @@ def rebuild_index(force: bool = False) -> dict:
         clear_cache()
         return {"ok": True, "chunks": 0, "files": [], "failures": [], "skipped": True}
 
-    index_path = store.INDEX_DIR
+    index_path = store.index_dir()
     meta_path = index_path / "meta.json"
     fingerprint = store.documents_fingerprint()
     if not force and meta_path.exists():
@@ -262,7 +267,7 @@ def knowledge_summary() -> dict:
     """给界面用的知识库状态：文件清单（含是否已排除）+ 片段数 + 就绪判定。"""
     documents = store.list_documents()
     meta = {}
-    meta_path = store.INDEX_DIR / "meta.json"
+    meta_path = store.index_dir() / "meta.json"
     if meta_path.exists():
         try:
             meta = json.loads(meta_path.read_text(encoding="utf-8"))

@@ -1,13 +1,20 @@
 """应用数据存储：**工作区 = 本机上的一个文件夹**。
 
     <本机文件夹>/                   ← 工作区：知识库就来自这里的文档
-    public/appdata/                 ← 应用自己的数据（不往用户文件夹里写东西）
+    <数据目录>/                     ← 应用自己的数据，默认在系统数据目录里
         workspace.json              当前工作区路径 + 知识库排除名单
         conversations/<会话>.json    所有对话（都在默认工作区下面）
         kbsession/                  该文件夹的 FAISS 索引
+        documents/                  默认工作区文件夹（用户没指定时用它）
+
+数据目录由 `app/paths.py` 决定：Windows 在 `%APPDATA%\\agent-enterprise`，
+macOS 在 `~/Library/Application Support/agent-enterprise`，Linux 在
+`~/.local/share/agent-enterprise`。**刻意不放在项目目录里**——这样删掉项目
+重新 clone 一份再跑，之前的对话和知识库都还在。旧版本放在 `public/appdata`
+里的数据会在首次启动时自动搬过去。
 
 设计取向：
-  - **对话只有一个池子**，永远放在应用数据里。换文件夹不会把聊天记录弄丢，
+  - **对话只有一个池子**，永远放在数据目录里。换文件夹不会把聊天记录弄丢，
     也不会往用户的文件夹里塞我们的文件。
   - **知识库 = 工作区文件夹里受支持的文档**（顶层扫描）。用户既能用界面上传
     （上传即写入该文件夹，是真实文件），也能自己在资源管理器里放进去。
@@ -26,19 +33,40 @@ from pathlib import Path
 
 from .config import BASE_DIR
 from .documents import SUPPORTED_SUFFIXES
-
-APPDATA = BASE_DIR / "public" / "appdata"
-CONVERSATIONS = APPDATA / "conversations"
-INDEX_DIR = APPDATA / "kbsession"
-SETTINGS_PATH = APPDATA / "workspace.json"
-
-#: 默认工作区：应用自己管的文件夹（用户没指定时用它）
-DEFAULT_FOLDER = APPDATA / "documents"
+from .paths import data_root
 
 #: 一次最多索引多少个文件，避免误选一个巨大的目录把嵌入模型跑爆
 MAX_FILES = 200
 
 _LOCK = threading.RLock()
+
+
+def appdata() -> Path:
+    """应用数据目录（会顺带做一次旧数据搬迁）。"""
+    return data_root(BASE_DIR)
+
+
+def conversations_dir() -> Path:
+    path = appdata() / "conversations"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def index_dir() -> Path:
+    path = appdata() / "kbsession"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def default_folder() -> Path:
+    """默认工作区文件夹：也放在数据目录里，这样重新 clone 后还在。"""
+    path = appdata() / "documents"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def settings_path() -> Path:
+    return appdata() / "workspace.json"
 
 
 def _now() -> str:
@@ -68,7 +96,9 @@ def _read_json(path: Path, default: dict | None = None) -> dict:
 
 
 def ensure_layout() -> None:
-    for directory in (APPDATA, CONVERSATIONS, INDEX_DIR, DEFAULT_FOLDER):
+    """确保数据目录与默认工作区文件夹都存在。"""
+    appdata()
+    for directory in (conversations_dir(), index_dir(), default_folder()):
         directory.mkdir(parents=True, exist_ok=True)
 
 
@@ -76,12 +106,12 @@ def ensure_layout() -> None:
 
 def settings() -> dict:
     ensure_layout()
-    data = _read_json(SETTINGS_PATH)
+    data = _read_json(settings_path())
     folder = str(data.get("folder") or "")
     if not folder or not Path(folder).is_dir():
-        folder = str(DEFAULT_FOLDER)
+        folder = str(default_folder())
         data["folder"] = folder
-        _write_json(SETTINGS_PATH, data)
+        _write_json(settings_path(), data)
     data.setdefault("excluded", [])
     return data
 
@@ -102,7 +132,7 @@ def set_workspace_folder(path: str) -> dict:
         data["folder"] = str(target.resolve())
         # 换文件夹后旧的排除名单没有意义
         data["excluded"] = []
-        _write_json(SETTINGS_PATH, data)
+        _write_json(settings_path(), data)
     return workspace_info()
 
 
@@ -112,7 +142,8 @@ def workspace_info() -> dict:
     return {
         "folder": str(folder),
         "name": folder.name or str(folder),
-        "is_default": str(folder) == str(DEFAULT_FOLDER),
+        "data_dir": str(appdata()),
+        "is_default": str(folder) == str(default_folder()),
         "files": len(list_documents()),
         "excluded": list(data.get("excluded") or []),
     }
@@ -203,7 +234,7 @@ def exclude_document(name: str) -> None:
         excluded = set(data.get("excluded") or [])
         excluded.add(Path(name).name)
         data["excluded"] = sorted(excluded)
-        _write_json(SETTINGS_PATH, data)
+        _write_json(settings_path(), data)
 
 
 def include_document(name: str) -> None:
@@ -212,7 +243,7 @@ def include_document(name: str) -> None:
         excluded = set(data.get("excluded") or [])
         excluded.discard(Path(name).name)
         data["excluded"] = sorted(excluded)
-        _write_json(SETTINGS_PATH, data)
+        _write_json(settings_path(), data)
 
 
 def documents_fingerprint() -> str:
@@ -221,11 +252,6 @@ def documents_fingerprint() -> str:
 
 
 # ---------------------------------------------------------------- 会话
-
-def conversations_dir() -> Path:
-    ensure_layout()
-    return CONVERSATIONS
-
 
 def _conversation_path(conversation_id: str) -> Path:
     return conversations_dir() / f"{_safe_id(conversation_id)}.json"
@@ -309,21 +335,20 @@ def rename_conversation(conversation_id: str, title: str) -> dict:
 
 def clear_appdata() -> None:
     """清空应用数据（测试/重置用）。"""
-    shutil.rmtree(CONVERSATIONS, ignore_errors=True)
-    shutil.rmtree(INDEX_DIR, ignore_errors=True)
-    SETTINGS_PATH.unlink(missing_ok=True)
+    shutil.rmtree(conversations_dir(), ignore_errors=True)
+    shutil.rmtree(index_dir(), ignore_errors=True)
+    settings_path().unlink(missing_ok=True)
 
 
 __all__ = [
-    "APPDATA",
-    "DEFAULT_FOLDER",
-    "INDEX_DIR",
     "active_documents",
     "add_document",
+    "appdata",
     "append_message",
     "clear_appdata",
     "conversations_dir",
     "create_conversation",
+    "default_folder",
     "delete_conversation",
     "document_path",
     "documents_fingerprint",
@@ -331,12 +356,14 @@ __all__ = [
     "exclude_document",
     "get_conversation",
     "include_document",
+    "index_dir",
     "list_conversations",
     "list_directory",
     "list_documents",
     "rename_conversation",
     "set_workspace_folder",
     "settings",
+    "settings_path",
     "workspace_folder",
     "workspace_info",
 ]

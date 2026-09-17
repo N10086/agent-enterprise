@@ -22,7 +22,6 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from rag_faiss import rrf_merge  # noqa: E402
 from rag_pipeline import DEFAULT_MQ_COUNT, hyde, multi_query  # noqa: E402
 
 from .config import get_settings  # noqa: E402
@@ -78,6 +77,10 @@ def retrieve(
     mq_count: int = DEFAULT_MQ_COUNT,
 ) -> dict:
     """跑一轮完整检索，返回 ``{"chunks", "queries", "hypotheticals", "search_queries"}``。"""
+    # 延后到调用时才导入：faiss / 嵌入模型属于"用知识库才需要"的依赖，
+    # 这样只装了核心依赖的用户依然能把界面跑起来（只是没有本地检索）。
+    from rag_faiss import rrf_merge
+
     settings = get_settings()
     llm = llm or get_llm()
     top_k = top_k or settings.kb_top_k

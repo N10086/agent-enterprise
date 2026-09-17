@@ -3,6 +3,72 @@
 一个可以**跑在本机**的检索增强 Agent：左侧管理对话，右侧问答；知识库来自你自己指定的文件夹，
 模型可以在多家厂商之间切换。带 TypeScript 写的网页界面、多模型接入、MCP 协议支持。
 
+## 三步跑起来
+
+```bash
+git clone https://github.com/N10086/agent-enterprise.git
+cd agent-enterprise
+python run.bat          # Windows；macOS / Linux 用 ./run.sh
+```
+
+启动器会自动建虚拟环境、装依赖、打开浏览器到 <http://127.0.0.1:8760>。
+首次安装会下载 PyTorch 与嵌入模型（约几百 MB 到 2GB，视平台而定），之后启动只要几秒。
+
+不想用启动器就手动来三行：
+
+```bash
+python -m venv .venv && .venv/Scripts/activate     # Windows；macOS/Linux 是 source .venv/bin/activate
+pip install -r requirements.txt
+python main.py ui
+```
+
+**不需要 Node**——前端构建产物已经提交在 `webui/dist/`，只有改前端时才需要 `npm run build`。
+
+### 模型怎么配
+
+网页界面打开后点左下角「更多」→ **API 配置**，选厂商、填 API Key 即可（Key 只存在浏览器本地，不落盘）。
+
+想在命令行或启动前配好，就复制一份 `.env`：
+
+```bash
+cp .env.example .env
+```
+
+```
+OPENAI_API_KEY=sk-xxxx
+OPENAI_API_BASE=https://api.deepseek.com/v1
+MODEL_NAME=deepseek-chat
+```
+
+## 数据放在哪里（重新 clone 不会丢）
+
+**代码和数据是分开的**：对话历史、知识库索引、默认工作区文件夹都放在操作系统的应用数据目录里，
+不在项目目录内。
+
+| 系统 | 数据目录 |
+|---|---|
+| Windows | `%APPDATA%\agent-enterprise` |
+| macOS | `~/Library/Application Support/agent-enterprise` |
+| Linux | `~/.local/share/agent-enterprise` |
+
+```
+<数据目录>/
+    workspace.json          当前工作区文件夹 + 知识库排除名单
+    conversations/*.json    所有对话（含工具轨迹）
+    kbsession/              该文件夹的 FAISS 索引
+    documents/              默认工作区文件夹
+```
+
+所以**删掉项目目录、重新 clone 一份再跑，之前的对话和知识库照样在**。
+想换位置（比如放到移动硬盘或云盘同步目录）：
+
+```bash
+AGENT_DATA_DIR=D:\my-agent-data python main.py ui
+```
+
+从早期版本（数据放在项目里 `public/appdata`）升级上来时，首次启动会自动把旧数据复制过去，
+旧目录保持原样不动。
+
 ## 它是怎么工作的
 
 ```
@@ -44,11 +110,8 @@ supervisor ──► researcher ⇄ tool_executor ──► tool_result_reader �
 网页界面里的「知识库」不是项目自带的语料，而是**你指定的本机文件夹**：
 
 ```
-<你指定的文件夹>          ← 工作区：里面的文档就是知识库
-public/appdata/           ← 应用自己的数据，不往你的文件夹里写东西
-   workspace.json           当前文件夹路径 + 知识库排除名单
-   conversations/*.json     所有对话（含执行轨迹）
-   kbsession/               该文件夹的 FAISS 索引
+<你指定的文件夹>/          ← 工作区：里面的文档就是知识库
+<数据目录>/                ← 应用自己的数据（对话、索引、默认工作区），不往你的文件夹里写东西
 ```
 
 支持的格式：`.pdf` / `.docx` / `.pptx` / `.md` / `.txt` / `.rst` / `.csv` / `.json`。
@@ -74,27 +137,24 @@ public/appdata/           ← 应用自己的数据，不往你的文件夹里�
 每次调用都转发给当前生效的模型；RAG 链路内部的改写 / HyDE 也跟着一起切，
 不会出现"图用 Qwen、检索用 DeepSeek"的错配。API Key 存在浏览器本地，不落盘。
 
-## 安装
+## 安装（手动方式）
 
 ```bash
 pip install -r requirements.txt
 cp .env.example .env        # 填 OPENAI_API_KEY / OPENAI_API_BASE / MODEL_NAME
 ```
 
-`.env` 走的是 OpenAI 兼容协议，所以填任意一家的地址与 key 都能直接跑，例如：
-
-```
-OPENAI_API_KEY=sk-xxxx
-OPENAI_API_BASE=https://api.deepseek.com/v1
-MODEL_NAME=deepseek-chat
-```
+`.env` 走的是 OpenAI 兼容协议，所以填任意一家的地址与 key 都能直接跑。
 
 ## 运行
 
 ```bash
-python main.py ui                 # 打开 http://127.0.0.1:8760
-python main.py ui --port 9000
+python run.bat                    # Windows 一键：建 venv + 装依赖 + 启动
+./run.sh                          # macOS / Linux
+python main.py ui                 # 已经装好依赖时，直接启动
+python main.py ui --port 9000     # 换端口
 python main.py ask --question "明朝开国皇帝是谁"
+python main.py demo
 ```
 
 界面上：
@@ -141,18 +201,22 @@ app/
   mcp_client.py    MCP 客户端
   documents.py     文档解析（pdf/docx/pptx/md/txt…）
   workspace.py     工作区文件夹 + 对话落盘
+  paths.py         数据目录（代码与数据分离）
   session.py       知识库：扫描文件夹、建索引、门控 rag_search
   knowledge.py     向量库接入层
   state.py         图状态
   runner.py        跑图 / 流式事件
   web_search.py    多引擎联网搜索
-webui/             TypeScript 前端（主窗口 + 设置窗口）
+webui/             TypeScript 前端（主窗口 + 设置窗口），dist/ 是已构建产物
 serve_ui.py        本机 HTTP 服务（标准库，无 Web 框架）
 mcp_server.py      MCP 服务端
+run.bat / run.sh   一键启动器
 ```
 
 ## 说明
 
 - 网页服务默认只监听 `127.0.0.1`；换 `--host` 会提示风险（界面上会填 API Key）。
 - 联网搜索走多个引擎并合并结果，若某个引擎失败会自动换下一个。
-- 对话与索引都在 `public/appdata/`，删掉它就是重置应用数据（不会动你的文档文件夹）。
+- 删掉数据目录即可重置应用（不会动你自己的文档文件夹）。
+- 只想跑界面、暂时不用本地知识库的话，可以不装 `sentence-transformers`：
+  问答照常，导入文档时会提示补装依赖。
